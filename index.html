@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,560;9..144,650&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 :root{
   --paper:#f3f1ec; --ink:#1a1f26; --muted:#5b6470; --line:#d8d3c8;
   --focus:#1f4ea8; --focus-soft:#dbe5f6; --neigh:#b9c6cf;
@@ -15,7 +16,6 @@
   --f-disp:"Fraunces",Georgia,serif; --f-body:"Inter",-apple-system,system-ui,sans-serif;
   --f-data:"IBM Plex Mono",ui-monospace,monospace;
 }
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,560;9..144,650&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);
   font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
@@ -43,7 +43,12 @@ section p{max-width:64ch;margin:.7em 0}
   font-family:var(--f-disp);font-size:18px;max-width:60ch}
 
 /* maps */
-#norge,#detalj{width:100%;border:1px solid var(--line);border-radius:4px;background:#e9ecee}
+#norge,#detalj{width:100%;border:1px solid var(--line);border-radius:4px;
+  background:#e9ecee;position:relative}
+#norge::before,#detalj::before{content:'Laster bakgrunnskart …';position:absolute;
+  inset:0;display:flex;align-items:center;justify-content:center;color:#9aa3ab;
+  font-size:13px;font-family:var(--f-data);z-index:0;pointer-events:none}
+.leaflet-pane{z-index:1}
 #norge{height:560px}#detalj{height:440px}
 .maprow{display:grid;grid-template-columns:1fr;gap:18px}
 .leaflet-container{font-family:var(--f-body)}
@@ -276,8 +281,9 @@ document.getElementById('ndc').textContent=D.dc_all.length;
 const norge=L_map('norge',[64.8,12.5],4.3);
 function L_map(id,center,zoom){
   const m=L.map(id,{scrollWheelZoom:false}).setView(center,zoom);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {maxZoom:18,attribution:'© OpenStreetMap-bidragsytere'}).addTo(m);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    {maxZoom:19,subdomains:'abcd',
+     attribution:'© OpenStreetMap-bidragsytere © CARTO'}).addTo(m);
   return m;
 }
 // datasenterpunkter
@@ -501,8 +507,8 @@ function renderDetalj(c){
   const feats=D.geo.features.filter(f=>want.has(f.properties.nr));
   if(detaljMap){detaljMap.remove();detaljMap=null;}
   detaljMap=L.map('detalj',{scrollWheelZoom:false});
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {maxZoom:18,attribution:'© OpenStreetMap'}).addTo(detaljMap);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    {maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(detaljMap);
   const layer=L.geoJSON({type:'FeatureCollection',features:feats},{
     style:f=>{
       const isFocus=f.properties.nr===c.nr;
@@ -593,7 +599,10 @@ svg.innerHTML=s;
 
 // init
 renderCase('Fyresdal');
-setTimeout(()=>{norge.invalidateSize();},200);
+function fixSize(){norge.invalidateSize();if(detaljMap)detaljMap.invalidateSize();}
+window.addEventListener('load',()=>setTimeout(fixSize,150));
+window.addEventListener('resize',fixSize);
+setTimeout(fixSize,300);setTimeout(fixSize,800);
 })();
 </script>
 </body>
