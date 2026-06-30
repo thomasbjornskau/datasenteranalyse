@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Når datasenteret flytter inn – Hva betyr stedet?</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+:root{
+  --paper:#f3f1ec; --ink:#1a1f26; --muted:#5b6470; --line:#d8d3c8;
+  --focus:#1f4ea8; --focus-soft:#dbe5f6; --neigh:#b9c6cf;
+  --warm:#c0612e; --good:#2e7d54; --warn:#b08200; --bad:#a8443a;
+  --card:#fbfaf7;
+  --f-disp:"Fraunces",Georgia,serif; --f-body:"Inter",-apple-system,system-ui,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,monospace;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,560;9..144,650&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);
+  font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+a{color:var(--focus)}
+h1,h2,h3{font-family:var(--f-disp);font-weight:560;line-height:1.12;letter-spacing:-.01em}
+.eyebrow{font-family:var(--f-data);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);font-weight:500}
+.num{font-family:var(--f-data);font-variant-numeric:tabular-nums}
+
+/* HERO */
+header.hero{border-bottom:1px solid var(--line);padding:54px 0 40px;background:
+  linear-gradient(180deg,#eceae3 0%,var(--paper) 100%)}
+.hero h1{font-size:clamp(34px,5.4vw,58px);margin:.32em 0 .28em;max-width:14ch}
+.hero .lead{font-size:18px;max-width:60ch;color:#2c333c}
+.hero .lead b{font-weight:600;color:var(--ink)}
+
+/* sections */
+section{padding:46px 0;border-bottom:1px solid var(--line)}
+section .kapnr{font-family:var(--f-data);font-size:13px;color:var(--warm);letter-spacing:.1em}
+section h2{font-size:clamp(24px,3.4vw,34px);margin:.18em 0 .5em;max-width:24ch}
+section p{max-width:64ch;margin:.7em 0}
+.note{font-size:14px;color:var(--muted);max-width:64ch}
+.takeaway{border-left:3px solid var(--warm);padding:10px 0 10px 16px;margin:20px 0;
+  font-family:var(--f-disp);font-size:18px;max-width:60ch}
+
+/* maps */
+#norge,#detalj{width:100%;border:1px solid var(--line);border-radius:4px;background:#e9ecee}
+#norge{height:560px}#detalj{height:440px}
+.maprow{display:grid;grid-template-columns:1fr;gap:18px}
+.leaflet-container{font-family:var(--f-body)}
+.legend{background:var(--card);padding:10px 12px;border:1px solid var(--line);border-radius:4px;
+  font-size:12.5px;line-height:1.7;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.legend .sw{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;
+  vertical-align:-1px;border:1px solid rgba(0,0,0,.2)}
+.legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;
+  vertical-align:-1px}
+
+/* case selector */
+.cases{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 26px}
+.cases button{font-family:var(--f-body);font-size:14px;font-weight:500;cursor:pointer;
+  background:var(--card);border:1px solid var(--line);color:var(--ink);
+  padding:7px 14px;border-radius:30px;transition:all .15s}
+.cases button:hover{border-color:var(--focus)}
+.cases button[aria-selected=true]{background:var(--focus);border-color:var(--focus);color:#fff}
+
+/* case layout */
+.casegrid{display:grid;grid-template-columns:1fr;gap:22px}
+@media(min-width:880px){.casegrid{grid-template-columns:1.05fr .95fr}}
+
+/* kommunekort */
+.kort{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.kort .top{padding:16px 18px;border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.kort .top h3{font-size:23px;margin:0}
+.kort .top .knr{font-family:var(--f-data);font-size:12px;color:var(--muted)}
+.badge{font-family:var(--f-body);font-size:12px;font-weight:600;padding:4px 9px;border-radius:4px;
+  white-space:nowrap}
+.badge.hoy{background:#e7f3ec;color:var(--good)}
+.badge.mod{background:#fbf3df;color:var(--warn)}
+.badge.svak{background:#f7e6e4;color:var(--bad)}
+.badge.uavk{background:#eceae3;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.cell{padding:13px 18px;border-bottom:1px solid var(--line)}
+.cell:nth-child(odd){border-right:1px solid var(--line)}
+.cell .lab{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.cell .val{font-family:var(--f-data);font-size:21px;font-weight:500;margin-top:3px}
+.cell .val.sm{font-size:15px}
+.cell .sub{font-size:12px;color:var(--muted)}
+.prikket{color:var(--bad);font-style:italic;font-size:14px}
+.dckval{font-size:12px;color:var(--muted);padding:11px 18px}
+
+/* næringsprofil bars */
+.profil{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:18px}
+.profil h3{margin:0 0 4px;font-size:18px}
+.bar{display:grid;grid-template-columns:130px 1fr 54px;align-items:center;gap:10px;
+  margin:6px 0;font-size:13px}
+.bar .bn{color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .bt{height:15px;background:#e7e3d9;border-radius:3px;position:relative;overflow:hidden}
+.bar .bf{height:100%;background:var(--focus);border-radius:3px}
+.bar .bf.ind{background:var(--warm)}
+.bar .lq{font-family:var(--f-data);font-size:12.5px;text-align:right}
+.bar.head{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.lqtag{font-family:var(--f-data);font-size:11px;padding:1px 5px;border-radius:3px;margin-left:5px}
+
+/* MW modul */
+.mwbox{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:18px;margin-top:20px}
+.scenarios{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.scen{border:1px solid var(--line);border-radius:5px;padding:12px;text-align:center;background:var(--paper)}
+.scen .sl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.scen .sv{font-family:var(--f-data);font-size:26px;font-weight:500;margin:5px 0 2px}
+.scen .ss{font-size:11.5px;color:var(--muted)}
+.scen.konkret{border-color:var(--focus);background:var(--focus-soft)}
+.relrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.relrow .rc{border:1px solid var(--line);border-radius:5px;padding:11px 13px;background:var(--paper)}
+.relrow .rc .rl{font-size:11.5px;color:var(--muted)}
+.relrow .rc .rv{font-family:var(--f-data);font-size:19px;margin-top:3px}
+.byggboks{background:#efeae0;border-radius:5px;padding:12px 14px;margin-top:12px;font-size:13.5px;color:#444}
+
+/* scatter (folketall x kk) + matrise */
+svg.viz{width:100%;height:auto;display:block;background:var(--card);
+  border:1px solid var(--line);border-radius:6px}
+.vizcap{font-size:13px;color:var(--muted);margin-top:8px}
+
+/* skjevhetsfordeling */
+.dist{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:18px}
+
+/* kilder */
+.kilder{font-size:13.5px;color:var(--muted);columns:2;column-gap:34px}
+.kilder h3{font-family:var(--f-disp);color:var(--ink);column-span:all;font-size:20px;margin:.2em 0 .6em}
+.kilder p{margin:.5em 0;break-inside:avoid;max-width:none}
+.kilder code{font-family:var(--f-data);font-size:12px;background:#eceae3;padding:1px 4px;border-radius:3px}
+@media(max-width:700px){.kilder{columns:1}.grid2 .cell:nth-child(odd){border-right:none}
+  .scenarios{grid-template-columns:1fr}}
+footer{padding:40px 0 70px;color:var(--muted);font-size:13px}
+.metode{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);
+  margin-top:10px;padding-top:8px;max-width:64ch}
+mark{background:var(--focus-soft);padding:0 2px}
+</style>
+</head>
+<body>
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">Forklaringsartikkel · SSB-statistikk møter datasenterdata</div>
+  <h1>Når datasenteret flytter inn: Hva betyr stedet?</h1>
+  <p class="lead">Datasentre trenger kraft, areal og infrastruktur. Men hva etableringen <b>betyr</b>
+  avhenger like mye av kommunen den havner i. Noen steder kan datasenteret bli en synlig ny arbeidsplass
+  og et tegn på framtidig aktivitet. Andre steder blir det først og fremst en stor ny kraftbruker i et
+  område der kraften allerede har mange bruksområder. Denne artikkelen bruker tall fra SSB sammen med
+  data om datasentre og konsesjonskraft for å gjøre forskjellen mellom steder lettere å se.</p>
+</div></header>
+
+<main>
+<!-- KAP 1 -->
+<section><div class="wrap">
+  <div class="kapnr">KAPITTEL 1</div>
+  <h2>Datasentre er ikke like lokale overalt</h2>
+  <p>Samme type etablering kan få helt ulik betydning. Kartet viser de
+  <span class="num" id="ndc"></span> kommunene med kjent datasenter eller datasenterprosjekt, lagt oppå
+  fordelingen av konsesjonskraft. Et datasenter i Oslo og et datasenter i Røyrvik er ikke samme
+  samfunnsfenomen – det første forsvinner i et stort arbeidsmarked, det andre kan snu en hel kommunes
+  utvikling, eller bare bli en kraftbruker. Klikk en case nedenfor for å gå i dybden.</p>
+  <div class="maprow">
+    <div id="norge"></div>
+  </div>
+  <p class="note">Bakgrunnskart: © OpenStreetMap-bidragsytere. Punktfarge = datasentertype.
+  Punktene er plassert på kommunenivå (omtrentlig kommunesenter), ikke nøyaktig anleggsadresse.
+  Polygonene viser de fem casene og nabokommunene deres med forenklet geometri.</p>
+</div></section>
+
+<!-- KAP 2 -->
+<section><div class="wrap">
+  <div class="kapnr">KAPITTEL 2</div>
+  <h2>Kraft er nødvendig, men ikke nok</h2>
+  <p>Konsesjonskraft er en <b>rettighet</b> kommuner har til en andel kraft til selvkostpris – ikke det
+  samme som ledig effekt i nettet, og ikke det samme som fysisk tilgjengelig kraft for en ny stor bruker.
+  Energi (GWh), effekt (MW) og nettkapasitet er tre forskjellige størrelser. Fordelingen mellom kommuner
+  er svært skjev:</p>
+  <div class="dist"><svg class="viz" id="distviz" viewBox="0 0 700 220"></svg></div>
+  <p class="note" id="diststat"></p>
+  <div class="takeaway">Mye konsesjonskraft gjør en kommune relevant i kraftsystemet, men sier lite alene
+  om den er godt egnet for lokal samfunnseffekt.</div>
+</div></section>
+
+<!-- CASE -->
+<section><div class="wrap">
+  <div class="kapnr">KAPITTEL 3–5 · CASEKOMMUNER</div>
+  <h2>Fem steder, fem ulike spørsmål</h2>
+  <p>For hver case stilles det samme spørsmålet: <mark>Hva kan et datasenter bety akkurat her, gitt
+  befolkningen, næringsstrukturen, kraftsituasjonen og kommunene rundt?</mark></p>
+  <div class="cases" id="casebtns" role="tablist"></div>
+  <div class="casegrid">
+    <div>
+      <div class="kort" id="kort"></div>
+      <div class="mwbox" id="mwbox"></div>
+    </div>
+    <div>
+      <div id="detalj"></div>
+      <p class="note" id="detaljnote"></p>
+      <div class="profil" id="profil" style="margin-top:18px"></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- MATRISE -->
+<section><div class="wrap">
+  <div class="kapnr">SIGNATUR</div>
+  <h2>Sårbarhet × kapasitet</h2>
+  <p>Den mest interessante kommunen er ikke nødvendigvis den med mest kraft. Det er den der ny aktivitet
+  kan bety mye lokalt, uten at den åpenbart fortrenger en sterkere alternativ bruk. Aksene under setter
+  <b>lokal sårbarhet</b> (lite folketall, fallende befolkning, smal næringsbase) mot <b>lokal kapasitet</b>
+  (kraft, industriell kompetanse, regionalt arbeidsmarked).</p>
+  <svg class="viz" id="matrise" viewBox="0 0 700 480"></svg>
+  <p class="vizcap">Plasseringen bygger på de viste indikatorene, ikke på en skjult totalscore. Et punkt
+  høyt og til venstre (sårbar, lav kapasitet) er der hjørnesteinshypotesen er mest relevant – og mest
+  usikker. Et punkt lavt og til høyre er en kraftkommune der «kraftintensiv infrastruktur» ofte beskriver
+  etableringen bedre enn «hjørnesteinsbedrift».</p>
+</div></section>
+
+<!-- KAP 6 -->
+<section><div class="wrap">
+  <div class="kapnr">KAPITTEL 6</div>
+  <h2>Et kart for bedre spørsmål</h2>
+  <p>Artikkelen gir ikke ett svar på hvor datasentre bør ligge. Den gir et bedre grunnlag for å spørre:
+  Hvor stor er den lokale effekten, målt mot kommunens eget arbeidsmarked? Hva er alternativ bruk av
+  kraften? Er kommunen sårbar eller allerede sterk? Er datasenteret viktig i drift, eller mest i
+  byggefasen? Og: hva kan SSB-statistikk faktisk belyse – og hva krever andre kilder?</p>
+  <div class="takeaway">Det avgjørende spørsmålet er ikke bare hvor stort datasenteret er i MW.
+  Det avgjørende er hvor stort det blir i kommunen.</div>
+</div></section>
+
+<!-- KILDER -->
+<section><div class="wrap"><div class="kilder">
+  <h3>Kilder og metode</h3>
+  <p><b>Konsesjonskraft.</b> Brukeropplastet regneark, aggregert fra kraftverksnivå
+  (eier × kraftverk × kommune) til kommunenivå. 233 kommuner, sum ~8 807 GWh.
+  Behandlet som energirettighet i GWh, ikke som ledig effekt.</p>
+  <p><b>Sysselsetting.</b> SSB tabell <code>07984</code>, sysselsatte etter arbeidssted, næring (SN2007),
+  4. kvartal 2025. «Industriell base 05–39» = bergverk (05–09) + industri (10–33) +
+  elektrisitet/vann/renovasjon (35–39). Jordbruk/skogbruk/fiske (01–03) holdes utenfor.</p>
+  <p><b>Befolkning.</b> SSB tabell <code>07459</code>, kodeliste <code>agg_KommSummer</code>
+  (sammenslåtte tidsserier til 2024-grenser). Folketall 2016 og 2026, og andel i alder 20–64.</p>
+  <p><b>Datasentre.</b> Avledet fra Data Center Map (kommersiell oversikt) – 43 kommuner med kjent
+  anlegg/prosjekt. Normalisert fra marked/tettsted til kommune. Type (krypto/KI/tradisjonell/by) er
+  redaksjonell vurdering der den er kjent, ikke offisiell registrering.</p>
+  <p><b>Arbeidsplasser per MW.</b> SSB-referansetabell, 28 anlegg. Median 1,09 ansatte/MW,
+  snitt 2,1 (planlagte inkludert). Store anlegg (150+ MW) har lavere ansatte/MW (median 0,83).</p>
+  <p><b>Prikking.</b> SSB suppimerer celler med få sysselsatte. Disse vises som «prikket av SSB»,
+  ikke som null eller estimat.</p>
+  <p><b>Kjente avvik.</b> «46 av 233» i oppdraget gjelder en annen telling (operatør/fasilitet);
+  her er 31 av 43 datasenterkommuner også i konsesjonskraftdataene. Kilden knytter enkelte anlegg til feil
+  kommune (Mo i Rana ligger i Rana, ikke Vefsn; Harpefoss ved Sør-/Nord-Fron, ikke Sel) – flagget som
+  «må kontrolleres». Røyrvik har datasenter, men mangler konsesjonskraft i datasettet.</p>
+  <div class="metode">Lokaliseringskvotient (LQ) = kommunens næringsandel ÷ landets næringsandel.
+  LQ &gt; 1 betyr overrepresentasjon. Hjørnesteinsindikatoren vises som tre separate delkomponenter
+  (sårbarhet, relativ betydning, kapasitet), ikke som én sammenslått score, for å holde usikkerheten synlig.</div>
+</div></div></section>
+</main>
+
+<footer><div class="wrap">
+  Prototype · forklaringsartikkel om datasenterlokalisering og lokal samfunnseffekt.
+  Selvstendig HTML, klar for GitHub Pages. Tall hentet fra SSB (07984, 07459) og brukeropplastede datasett.
+</div></footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>window.DATA={"cases":{"Fyresdal":{"nr":"4032","pop2016":1323,"pop2026":1274,"syss":529,"nace":{"01-03":41,"05-09":0,"10-33":48,"35-39":3,"41-43":87,"45-47":57,"49-53":13,"55-56":null,"58-63":null,"64-66":0,"68-75":34,"77-82":null,"84":null,"85":null,"86-88":133,"90-99":16},"kk":65.5,"andel2064":54.8,"dc":"Fyresdal Datacenter","dctype":"Tradisjonelt/uavklart","dcmw":null,"dckval":"Oppgitt i Data Center Map"},"Røyrvik":{"nr":"5043","pop2016":469,"pop2026":439,"syss":177,"nace":{"01-03":19,"05-09":null,"10-33":null,"35-39":null,"41-43":null,"45-47":null,"49-53":null,"55-56":6,"58-63":null,"64-66":0,"68-75":null,"77-82":6,"84":23,"85":null,"86-88":44,"90-99":9},"kk":null,"andel2064":48.2,"dc":"Bitzero Røyrvik","dctype":"Kryptoutvinning","dcmw":null,"dckval":"Oppgitt i Data Center Map"},"Skjåk":{"nr":"3433","pop2016":2204,"pop2026":2185,"syss":996,"nace":{"01-03":147,"05-09":0,"10-33":163,"35-39":22,"41-43":68,"45-47":73,"49-53":54,"55-56":34,"58-63":null,"64-66":null,"68-75":36,"77-82":38,"84":47,"85":58,"86-88":195,"90-99":22},"kk":72.7,"andel2064":52.5,"dc":"Compute Nordic DC3 (Bismo)","dctype":"KI-klar/tradisjonell","dcmw":null,"dckval":"Oppgitt i Data Center Map"},"Suldal":{"nr":"1134","pop2016":3903,"pop2026":3891,"syss":1859,"nace":{"01-03":191,"05-09":null,"10-33":53,"35-39":null,"41-43":148,"45-47":120,"49-53":108,"55-56":57,"58-63":null,"64-66":null,"68-75":90,"77-82":60,"84":66,"85":143,"86-88":380,"90-99":72},"kk":302.0,"andel2064":51.7,"dc":"ASP Suldal (Sand)","dctype":"Tradisjonelt/uavklart","dcmw":null,"dckval":"Oppgitt i Data Center Map"},"Sirdal":{"nr":"4228","pop2016":1832,"pop2026":1911,"syss":1148,"nace":{"01-03":61,"05-09":0,"10-33":null,"35-39":null,"41-43":205,"45-47":65,"49-53":32,"55-56":70,"58-63":6,"64-66":0,"68-75":26,"77-82":35,"84":58,"85":94,"86-88":199,"90-99":49},"kk":251.5,"andel2064":55.4,"dc":"Tonstad Datapark","dctype":"Hyperscale/KI-klar","dcmw":300,"dcansatte":250,"dckval":"Bekreftet av operatør (SSB-tabell)"}},"nace_labels":{"01-03":"Jordbruk, skogbruk, fiske","05-09":"Bergverk","10-33":"Industri","35-39":"El, vann, renovasjon","41-43":"Bygg og anlegg","45-47":"Varehandel","49-53":"Transport","55-56":"Overnatting/servering","58-63":"Info/kommunikasjon","64-66":"Finans","68-75":"Teknisk tjenesteyting","77-82":"Forretningstjenester","84":"Off.adm/forsvar","85":"Undervisning","86-88":"Helse/sosial","90-99":"Personlig tj."},"landet":{"00-99":2872855,"01-03":65717,"05-09":67241,"10-33":220880,"35-39":37502,"41-43":232945,"45-47":355141,"49-53":137308,"55-56":107324,"58-63":116156,"64-66":53130,"68-75":196034,"77-82":127381,"84":184576,"85":231938,"86-88":597563,"90-99":123725},"mwtable":[["Lefdal Mine Datasenter",37,51,1.38,"Drift"],["Bulk NO1",100,73.4,0.73,"Drift"],["OS-IX",14.5,10.6,0.73,"Drift"],["Storespeed",1,1,1.0,"Drift"],["Nscale Glomfjord",30,23,0.77,"Drift"],["Avur",2,2,1.0,"Drift"],["Si. Osl 01",8,8.7,1.09,"Drift"],["Si. Osl 02",5,5.4,1.09,"Drift"],["Si. Osl 03",15,16.3,1.09,"Drift"],["Si. Osl 04",6,6.5,1.09,"Drift"],["GM Enebakk",27.5,60.3,2.19,"Drift"],["GM Rennesøy",16.5,117,7.09,"Drift"],["GM Rjukan",6.7,77,11.49,"Drift"],["GM Hamar",100,220,2.2,"Fullskala"],["Eidsiva Gjøvik",6,4,0.67,"Fullskala"],["Skygard OSL1",20,34.6,1.73,"Fullskala"],["Skygard OSL3",3.6,6.2,1.73,"Fullskala"],["Skygard OSL5",12,20.8,1.73,"Fullskala"],["Stargate",230,250,1.09,"Planlagt"],["AQ-OSL 01",5.8,15,2.59,"Planlagt"],["Arctic Core",5,6,1.2,"Planlagt"],["Google Skien (bt.1)",240,200,0.83,"Planlagt"],["Tonstad Datapark",300,250,0.83,"Planlagt"],["Nordland Data",40,55,1.38,"Planlagt"],["Nscale Korgen",250,200,0.8,"Planlagt"],["Nscale Fauske",13,125,9.62,"Planlagt"],["EdgeConneX",140,150,1.07,"Planlagt"],["Tydal (bt.2)",180,100,0.56,"Planlagt"]],"dc_all":[["Halden","3101",59.13,11.39,"GM Halden, Halden DC01","tradisjonell"],["Kvinnherad","4617",59.96,5.96,"Arcem/NDC Husnes","tradisjonell"],["Rana","1833",66.31,14.14,"T1 Energy Mo i Rana","KI/industri"],["Sarpsborg","3105",59.28,11.11,"Mindre anlegg","tradisjonell"],["Sauda","1135",59.65,6.35,"Mindre datasenter","tradisjonell"],["Skien","4014",59.21,9.61,"Google Skien","hyperscale"],["Fyresdal","4032",59.19,8.1,"Fyresdal Datacenter","tradisjonell"],["Røyrvik","5043",64.89,13.56,"Bitzero Røyrvik","krypto"],["Skjåk","3433",61.88,8.36,"Compute Nordic DC3","KI/tradisjonell"],["Suldal","1134",59.49,6.27,"ASP Suldal","tradisjonell"],["Sirdal","4228",58.77,6.81,"Tonstad Datapark","hyperscale"],["Asker","3203",59.83,10.43,"NTC Billingstad","by"],["Bergen","4601",60.39,5.32,"AVUR/Kitebrook/Arcem m.fl.","by"],["Lillestrøm","3205",59.95,11.05,"Si. Osl 03 (Stack)","by"],["Oslo","0301",59.91,10.75,"DigiPlex/AWS/Skygard","by"],["Stavanger","1103",58.97,5.73,"Azure/GlobalConnect/GM Rennesøy","by"],["Trondheim","5001",63.43,10.39,"Flere datasentre","by"],["Tysvær","1146",59.36,5.42,"GM Gismarvik, atNorth NOR01","KI/industri"],["Bremanger","4648",61.87,5.13,"Lefdal Mine Datacenter","KI/tradisjonell"],["Elverum","3420",60.88,11.56,"Arcem Elverum","tradisjonell"],["Fauske","1841",67.26,15.39,"Nscale Fauske","KI"],["Gjøvik","3407",60.8,10.69,"TietoEvry Gjøvik","tradisjonell"],["Hamar","3403",60.79,11.07,"GM Hamar (TikTok)","hyperscale"],["Hemnes","1832",66.06,13.64,"Nscale Korgen","KI"],["Kristiansand","4204",58.15,8.0,"Bulk N01 Campus m.fl.","blandet"],["Kristiansund","1505",63.11,7.73,"Magnora Scale Averøya","tradisjonell"],["Lindesnes","4205",58.03,7.46,"Tryland Data Center","tradisjonell"],["Luster","4644",61.42,7.3,"BlueFjords/Kitebrook/Compute Nordic","KI/tradisjonell"],["Masfjorden","4631",60.87,5.42,"Kitebrook Matre","tradisjonell"],["Molde","1506",62.74,7.16,"Beetdeer Molde","krypto"],["Moss","3103",59.43,10.66,"Arcem Moss","tradisjonell"],["Namsskogan","5044",64.78,13.18,"Bitzero Namsskogan","krypto"],["Narvik","1806",68.44,17.43,"Kvandal (Stargate/Nscale)","KI/hyperscale"],["Ringerike","3305",60.17,10.26,"GM Hønefoss","tradisjonell"],["Sandefjord","3909",59.13,10.22,"Gigahost DC1/2/3","tradisjonell"],["Sel","3437",61.86,9.55,"Fossefall Harpefoss","tradisjonell"],["Sogndal","4640",61.23,7.1,"Compute Nordic DC2","KI/tradisjonell"],["Time","1121",58.74,5.55,"Green Horizon Vidar m.fl.","KI"],["Tinn","4026",59.88,8.59,"GM Rjukan","tradisjonell"],["Vefsn","1824",65.83,13.19,"T1 m.fl. (jf. Rana)","KI/industri"],["Vennesla","4223",58.27,7.98,"Bulk Infrastructure","tradisjonell"],["Våler","3114",59.49,10.78,"Google Våler","hyperscale"],["Ås","3218",59.66,10.79,"Mindre anlegg","tradisjonell"]],"kk_bynr":{"1101":6.4,"1108":118.9,"1112":3.1,"1114":0.2,"1122":19.7,"1133":173.8,"1134":302.0,"1135":123.4,"1160":null,"1525":4.3,"1539":40.4,"1578":61.0,"1825":9.2,"1826":58.5,"3432":40.7,"3433":72.7,"3434":38.9,"4028":11.2,"4030":27.3,"4032":65.5,"4034":116.6,"4036":300.3,"4207":8.6,"4217":16.4,"4220":28.2,"4221":127.9,"4222":354.1,"4227":108.8,"4228":251.5,"4611":20.1,"4618":359.0,"4644":221.3,"4651":null,"5042":13.4,"5043":null,"5044":44.5,"5045":12.9},"kk_stats":{"n":233,"median":11.2,"snitt":37.8,"max":359.0,"p90":110.4,"p99":302.0},"kk_alle":[0.0,0.06,0.1,0.17,0.18,0.19,0.2,0.21,0.22,0.23,0.26,0.28,0.32,0.34,0.39,0.41,0.41,0.44,0.44,0.54,0.56,0.56,0.57,0.61,0.65,0.65,0.77,0.77,0.79,0.79,0.81,0.82,0.84,0.89,0.9,0.91,0.98,1.0,1.07,1.13,1.24,1.28,1.33,1.5,1.57,1.62,1.65,1.67,1.77,1.87,2.11,2.19,2.24,2.3,2.55,2.58,2.68,2.79,2.81,2.82,3.06,3.16,3.17,3.29,3.3,3.39,3.4,3.61,3.68,3.73,4.03,4.13,4.22,4.28,4.38,4.5,4.55,4.57,4.73,4.89,5.01,5.18,5.37,5.66,5.73,5.79,6.04,6.24,6.27,6.42,6.72,6.84,6.92,6.94,6.99,7.32,7.38,7.7,7.99,8.1,8.29,8.6,8.6,8.87,8.96,9.06,9.18,9.52,9.79,9.92,9.94,9.99,10.11,10.37,10.79,11.15,11.23,11.74,11.84,12.88,13.2,13.37,13.44,13.76,13.8,13.82,14.63,14.86,14.86,15.62,16.44,16.75,16.87,16.94,17.38,18.49,18.49,18.73,19.27,19.68,20.02,20.11,20.36,20.4,21.52,21.64,22.32,22.65,22.87,25.14,25.98,27.01,27.29,27.4,28.21,28.58,28.82,28.87,29.52,30.17,30.27,31.36,31.84,32.91,33.04,33.88,34.1,35.45,35.67,35.88,35.9,38.41,38.59,38.91,39.84,40.36,40.69,41.49,44.49,46.44,48.0,49.06,49.21,55.16,58.53,60.89,61.01,62.33,62.76,65.46,66.25,69.29,70.47,71.08,72.26,72.68,74.96,78.79,82.4,85.84,86.97,90.65,92.66,94.82,100.87,105.67,106.55,108.77,109.39,110.41,111.68,116.55,118.89,123.41,127.89,135.9,144.54,154.73,156.8,157.17,160.59,172.38,173.82,181.33,185.86,218.06,221.29,225.74,251.51,300.26,302.02,354.13,359.04],"neigh":{"4032":["4034","4220","4221","4217","4030","4028"],"5043":["5045","5042","1825","1826","5044"],"3433":["3434","1539","4644","4651","1578","3432","1525"],"1134":["4222","1133","4618","4036","1160","4611","1135"],"4228":["4222","1108","4220","1122","4221","4207","4227","1114","1112","1101"]},"geo":{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"nr":"1101","navn":"Eigersund"},"geometry":{"type":"MultiPolygon","coordinates":[[[[6.1119,58.3574],[6.1407,58.3755],[6.1428,58.3989],[6.1709,58.3979],[6.1956,58.4224],[6.1804,58.4307],[6.2597,58.4565],[6.2531,58.4769],[6.2782,58.4715],[6.2834,58.5239],[6.2646,58.5329],[6.2642,58.5593],[6.3931,58.5702],[6.4975,58.6099],[6.4869,58.6279],[6.4361,58.6493],[6.3234,58.6285],[6.3116,58.5992],[6.1372,58.5751],[6.0236,58.5143],[5.9347,58.5355],[5.8727,58.523],[5.8544,58.4999],[5.8477,58.4775],[5.8754,58.4644],[5.9972,58.476],[5.9789,58.4617],[6.0231,58.3911],[6.1119,58.3574]]],[[[5.8632,58.4347],[5.888,58.4431],[5.8692,58.445],[5.8632,58.4347]]],[[[5.8746,58.4294],[5.9037,58.4262],[5.9102,58.4562],[5.9756,58.4091],[5.9902,58.4204],[5.9778,58.4597],[5.9557,58.4686],[5.8892,58.4545],[5.8746,58.4294]]]]}},{"type":"Feature","properties":{"nr":"1108","navn":"Sandnes"},"geometry":{"type":"MultiPolygon","coordinates":[[[[5.6097,58.8279],[5.814,58.7789],[5.9817,58.8098],[6.0005,58.8326],[6.1008,58.865],[6.0683,58.8892],[5.9782,58.9032],[5.9655,58.9174],[5.9838,58.9281],[5.9636,58.9453],[5.8619,58.9628],[5.8511,58.9293],[5.7799,58.9276],[5.7713,58.878],[5.7491,58.862],[5.7487,58.8848],[5.696,58.8945],[5.6097,58.8279]]],[[[5.8031,58.9529],[5.8256,58.9375],[5.8395,58.9441],[5.8366,58.9596],[5.8031,58.9529]]],[[[5.9829,58.9246],[5.9988,58.9096],[6.0248,58.9043],[6.019,58.9194],[5.9829,58.9246]]],[[[6.1707,58.8496],[6.2969,58.8836],[6.4192,58.8971],[6.5394,58.9492],[6.5473,58.9769],[6.7026,58.9942],[6.9037,59.1134],[6.8797,59.1407],[6.9392,59.1819],[6.8377,59.1926],[6.7526,59.1719],[6.6588,59.1852],[6.5706,59.1407],[6.5479,59.0979],[6.3661,59.0876],[6.2358,59.0462],[6.2223,59.0367],[6.2365,59.0026],[6.6454,59.0514],[6.2831,58.9999],[6.1464,58.9549],[6.0864,58.9009],[6.1707,58.8496]]]]}},{"type":"Feature","properties":{"nr":"1112","navn":"Lund"},"geometry":{"type":"Polygon","coordinates":[[[6.2782,58.4715],[6.3175,58.4531],[6.3006,58.4439],[6.303,58.4169],[6.3551,58.42],[6.4567,58.463],[6.5226,58.3835],[6.4901,58.3721],[6.4706,58.2995],[6.5603,58.3274],[6.6087,58.374],[6.5953,58.4163],[6.6302,58.4437],[6.6074,58.4894],[6.5877,58.4928],[6.6182,58.5553],[6.5879,58.5902],[6.6147,58.6251],[6.5325,58.6279],[6.3931,58.5702],[6.2642,58.5593],[6.2646,58.5329],[6.2834,58.5239],[6.2782,58.4715]]]}},{"type":"Feature","properties":{"nr":"1114","navn":"Bjerkreim"},"geometry":{"type":"Polygon","coordinates":[[[5.8641,58.6623],[5.907,58.5935],[5.8737,58.5609],[6.0236,58.5143],[6.1372,58.5751],[6.3116,58.5992],[6.3234,58.6285],[6.3988,58.6305],[6.4771,58.6715],[6.622,58.696],[6.5736,58.7414],[6.5764,58.762],[6.3067,58.7324],[6.273,58.7398],[6.2787,58.7674],[6.1704,58.7949],[6.1339,58.7382],[6.047,58.7365],[6.0083,58.6942],[6.0216,58.6818],[5.9303,58.6829],[5.8641,58.6623]]]}},{"type":"Feature","properties":{"nr":"1122","navn":"Gjesdal"},"geometry":{"type":"Polygon","coordinates":[[[5.8658,58.6974],[6.0216,58.6818],[6.0083,58.6942],[6.047,58.7365],[6.1339,58.7382],[6.1704,58.7949],[6.2787,58.7674],[6.273,58.7398],[6.3067,58.7324],[6.3859,58.7325],[6.5181,58.7674],[6.6086,58.8801],[6.5675,58.8857],[6.5608,58.91],[6.6331,58.9398],[6.6655,58.9854],[6.5473,58.9769],[6.5394,58.9492],[6.4192,58.8971],[6.2046,58.8575],[6.2805,58.8397],[6.1753,58.8352],[6.1008,58.865],[6.0005,58.8326],[5.9817,58.8098],[5.814,58.7789],[5.8255,58.762],[5.799,58.7526],[5.8348,58.7535],[5.8754,58.7185],[5.8658,58.6974]]]}},{"type":"Feature","properties":{"nr":"1133","navn":"Hjelmeland"},"geometry":{"type":"MultiPolygon","coordinates":[[[[5.9899,59.2034],[6.0192,59.1968],[6.0085,59.1823],[6.0437,59.1845],[6.1011,59.2236],[6.0581,59.2295],[5.9899,59.2034]]],[[[6.1423,59.1384],[6.1543,59.1048],[6.1123,59.0853],[6.2223,59.0367],[6.3661,59.0876],[6.5479,59.0979],[6.5706,59.1407],[6.6588,59.1852],[6.7988,59.1762],[6.8377,59.1926],[6.8316,59.3173],[6.8651,59.3684],[6.7851,59.3744],[6.624,59.3431],[6.5941,59.3735],[6.5702,59.3591],[6.4708,59.3751],[6.4032,59.358],[6.3939,59.3715],[6.3194,59.3315],[6.3218,59.3111],[6.3008,59.3013],[6.1319,59.3086],[6.1166,59.2909],[6.1531,59.2615],[6.3307,59.3022],[6.3509,59.3173],[6.5348,59.3156],[6.4177,59.3126],[6.3232,59.2853],[6.3302,59.2704],[6.1921,59.2583],[6.1805,59.2385],[6.0888,59.2106],[6.0989,59.2004],[6.0226,59.1436],[6.174,59.1399],[6.1423,59.1384]]]]}},{"type":"Feature","properties":{"nr":"1134","navn":"Suldal"},"geometry":{"type":"MultiPolygon","coordinates":[[[[6.2801,59.5661],[6.1656,59.5855],[6.1624,59.5607],[6.1318,59.5538],[6.1501,59.5331],[6.1385,59.5191],[6.1926,59.474],[6.013,59.4451],[5.9297,59.4539],[5.9138,59.447],[5.9271,59.4368],[5.9161,59.4024],[5.9609,59.3521],[6.0113,59.3753],[6.018,59.4051],[6.1201,59.4065],[6.1225,59.4202],[6.218,59.4738],[6.2025,59.4882],[6.2686,59.5375],[6.2801,59.5661]]],[[[5.9509,59.3354],[5.9657,59.3315],[5.9836,59.3391],[5.9509,59.3354]]],[[[6.2733,59.3046],[6.3218,59.3111],[6.3194,59.3315],[6.3939,59.3715],[6.4032,59.358],[6.4708,59.3751],[6.5702,59.3591],[6.5941,59.3735],[6.624,59.3431],[6.7851,59.3744],[6.8651,59.3684],[6.8909,59.3982],[6.9314,59.4027],[6.8828,59.4284],[7.0229,59.4812],[6.963,59.5164],[6.9803,59.5234],[6.9918,59.597],[7.0486,59.5868],[7.0987,59.6513],[7.2147,59.6727],[7.1101,59.7006],[7.0963,59.7828],[6.9772,59.7721],[6.7713,59.7026],[6.6885,59.6957],[6.5509,59.6192],[6.3127,59.5677],[6.2706,59.5175],[6.4445,59.5575],[6.5652,59.5559],[6.2708,59.5058],[6.2025,59.4061],[6.213,59.4449],[6.1324,59.4163],[6.1377,59.4035],[6.0456,59.3769],[6.0209,59.3422],[6.0792,59.3305],[6.091,59.3547],[6.099,59.3237],[6.1349,59.3144],[6.214,59.3418],[6.1891,59.3178],[6.2381,59.3294],[6.2162,59.3494],[6.2204,59.3884],[6.2733,59.3046]]]]}},{"type":"Feature","properties":{"nr":"1135","navn":"Sauda"},"geometry":{"type":"Polygon","coordinates":[[[6.183,59.5861],[6.2801,59.5661],[6.3065,59.5792],[6.2893,59.618],[6.3396,59.6441],[6.3637,59.6383],[6.3293,59.6241],[6.3127,59.5677],[6.3354,59.5627],[6.6392,59.6591],[6.6885,59.6957],[6.6521,59.7182],[6.6901,59.7695],[6.6857,59.8306],[6.5381,59.8429],[6.4255,59.7899],[6.328,59.7816],[6.2741,59.74],[6.2684,59.7032],[6.2261,59.6919],[6.1781,59.6148],[6.183,59.5861]]]}},{"type":"Feature","properties":{"nr":"1160","navn":"Vindafjord"},"geometry":{"type":"Polygon","coordinates":[[[5.4758,59.5159],[5.4915,59.4542],[5.5235,59.4456],[5.5779,59.5005],[5.621,59.5003],[5.6153,59.4575],[5.6783,59.453],[5.7037,59.4088],[5.7511,59.4303],[5.7335,59.477],[5.7767,59.4375],[5.854,59.4639],[5.8172,59.5193],[5.8441,59.5381],[5.871,59.5399],[5.8699,59.504],[5.9093,59.4742],[6.1789,59.4854],[6.1385,59.5191],[6.1501,59.5331],[6.1318,59.5538],[6.1624,59.5607],[6.1656,59.5855],[6.0592,59.5983],[5.9694,59.579],[5.9696,59.5977],[5.8239,59.6458],[5.7918,59.6427],[5.8203,59.6101],[5.7404,59.6005],[5.7892,59.6202],[5.7727,59.6487],[5.6075,59.6857],[5.5538,59.6399],[5.5594,59.5953],[5.5823,59.5946],[5.5636,59.5537],[5.5096,59.5114],[5.4758,59.5159]]]}},{"type":"Feature","properties":{"nr":"1525","navn":"Stranda"},"geometry":{"type":"MultiPolygon","coordinates":[[[[6.794,61.9699],[7.0396,61.9837],[7.0745,62.0093],[7.2341,62.0341],[7.2408,62.0189],[7.3491,62.0077],[7.3425,62.0354],[7.4026,62.0609],[7.4147,62.0921],[7.3734,62.0946],[7.3106,62.1452],[7.2128,62.1767],[7.1937,62.1538],[7.0842,62.1696],[7.0389,62.2131],[7.0286,62.1614],[6.9617,62.115],[7.049,62.0945],[7.1425,62.1253],[7.1898,62.114],[7.1975,62.0978],[7.1215,62.1136],[7.0172,62.0845],[6.9344,62.1056],[6.8741,62.0808],[7.0166,62.1784],[7.005,62.2872],[6.9655,62.2912],[6.9184,62.3431],[6.8498,62.3721],[6.8151,62.3474],[6.8403,62.3128],[6.7798,62.2996],[6.7346,62.2609],[6.7481,62.236],[6.7047,62.2209],[6.7832,62.186],[6.7523,62.1321],[6.6682,62.1165],[6.7018,62.0836],[6.6576,62.0719],[6.794,61.9699]]],[[[7.1441,62.2953],[7.1677,62.3172],[7.0846,62.3291],[7.041,62.36],[6.9605,62.3412],[6.9881,62.3126],[7.1441,62.2953]]]]}},{"type":"Feature","properties":{"nr":"1539","navn":"Rauma"},"geometry":{"type":"Polygon","coordinates":[[[7.2333,62.4843],[7.3348,62.4525],[7.3355,62.4173],[7.3766,62.3878],[7.6083,62.4195],[7.5986,62.4328],[7.6238,62.4369],[7.7499,62.4193],[7.7965,62.3942],[7.8286,62.3629],[7.7804,62.3536],[7.7679,62.3289],[7.7182,62.3108],[7.6917,62.2919],[7.7047,62.2766],[7.6335,62.266],[7.708,62.2252],[7.684,62.1994],[7.7346,62.1846],[7.9836,62.1775],[8.2058,62.3317],[8.1959,62.3797],[8.0257,62.4518],[8.0361,62.4719],[8.0073,62.5013],[8.0369,62.5322],[8.0982,62.537],[8.0473,62.5659],[8.0805,62.5781],[7.9981,62.6117],[7.8254,62.6236],[7.8111,62.6382],[7.8286,62.6759],[7.7407,62.7139],[7.4985,62.6612],[7.5404,62.6197],[7.5436,62.5812],[7.5077,62.5844],[7.4892,62.6391],[7.401,62.6321],[7.417,62.5974],[7.4697,62.584],[7.4565,62.5766],[7.4772,62.5658],[7.5541,62.5541],[7.7365,62.5838],[7.784,62.5717],[7.6712,62.5656],[7.6599,62.5485],[7.5698,62.537],[7.568,62.5039],[7.5444,62.4987],[7.5182,62.5407],[7.4498,62.5318],[7.394,62.5665],[7.2255,62.5078],[7.2333,62.4843]]]}},{"type":"Feature","properties":{"nr":"1578","navn":"Fjord"},"geometry":{"type":"MultiPolygon","coordinates":[[[[6.8498,62.3721],[6.8885,62.3632],[6.9144,62.4117],[6.8495,62.4236],[6.828,62.4007],[6.8498,62.3721]]],[[[6.9134,62.4362],[6.9475,62.4202],[6.9601,62.386],[6.9853,62.3841],[6.9383,62.373],[6.9605,62.3412],[7.041,62.36],[7.0846,62.3291],[7.1677,62.3172],[7.1441,62.2953],[7.1769,62.2853],[7.3529,62.2902],[7.4295,62.2523],[7.4011,62.2428],[7.3291,62.2869],[7.2646,62.285],[7.2274,62.2533],[7.1347,62.2798],[7.0445,62.2788],[7.0389,62.2131],[7.0842,62.1696],[7.1937,62.1538],[7.2128,62.1767],[7.3106,62.1452],[7.3734,62.0946],[7.5142,62.0974],[7.5838,62.0653],[7.6318,62.0851],[7.5794,62.1219],[7.7346,62.1846],[7.684,62.1994],[7.708,62.2252],[7.6335,62.266],[7.7047,62.2766],[7.6917,62.2919],[7.7182,62.3108],[7.7679,62.3289],[7.7804,62.3536],[7.8286,62.3629],[7.7499,62.4193],[7.6238,62.4369],[7.5986,62.4328],[7.6083,62.4195],[7.3766,62.3878],[7.3355,62.4173],[7.3348,62.4525],[7.2333,62.4843],[7.1701,62.4481],[7.1162,62.4497],[7.118,62.4298],[7.0606,62.4138],[7.0157,62.4372],[6.9134,62.4362]]]]}},{"type":"Feature","properties":{"nr":"1825","navn":"Grane"},"geometry":{"type":"Polygon","coordinates":[[[13.058,65.2445],[13.1282,65.1593],[13.1567,65.1488],[13.0854,65.11],[13.6611,65.1083],[13.7106,65.1607],[13.7976,65.2103],[13.7961,65.229],[13.8728,65.2575],[13.7817,65.2632],[13.817,65.2955],[13.76,65.3158],[13.7955,65.3336],[13.7874,65.3513],[13.8057,65.3702],[13.7852,65.3843],[13.8638,65.4148],[13.8338,65.4235],[13.823,65.4505],[13.873,65.4758],[13.8726,65.4979],[13.7139,65.523],[13.7689,65.5544],[13.7228,65.5764],[13.7409,65.5982],[13.658,65.6608],[13.6255,65.7239],[13.6417,65.7384],[13.5327,65.7858],[13.4855,65.7488],[13.4184,65.7601],[13.4152,65.7413],[13.3648,65.7287],[13.3647,65.6916],[13.3418,65.6643],[13.2669,65.6896],[13.1925,65.6837],[13.224,65.5707],[13.2962,65.5448],[13.2872,65.5198],[13.0218,65.4641],[12.9331,65.3975],[13.0388,65.3997],[13.0711,65.372],[13.0516,65.3421],[13.0978,65.3253],[13.0811,65.3178],[13.1056,65.2892],[13.1668,65.2682],[13.058,65.2445]]]}},{"type":"Feature","properties":{"nr":"1826","navn":"Aarborte - Hattfjelldal"},"geometry":{"type":"Polygon","coordinates":[[[13.6611,65.1083],[14.1643,65.1392],[14.326,65.1189],[14.3788,65.2476],[14.5068,65.3097],[14.4988,65.5213],[14.5415,65.7008],[14.6255,65.8118],[14.6023,65.8623],[14.3733,65.8617],[14.3082,65.8917],[14.1624,65.8575],[14.1626,65.8357],[14.0817,65.7849],[13.9398,65.7851],[13.8724,65.766],[13.784,65.781],[13.6746,65.7643],[13.6417,65.7384],[13.6255,65.7239],[13.658,65.6608],[13.7409,65.5982],[13.7228,65.5764],[13.7689,65.5544],[13.7139,65.523],[13.8726,65.4979],[13.873,65.4758],[13.823,65.4505],[13.8338,65.4235],[13.8638,65.4148],[13.7852,65.3843],[13.8057,65.3702],[13.7874,65.3513],[13.7955,65.3336],[13.76,65.3158],[13.817,65.2955],[13.7817,65.2632],[13.8728,65.2575],[13.7961,65.229],[13.7976,65.2103],[13.7106,65.1607],[13.6611,65.1083]]]}},{"type":"Feature","properties":{"nr":"3432","navn":"Lesja"},"geometry":{"type":"Polygon","coordinates":[[[7.9836,62.1775],[8.0815,62.0483],[8.2179,62.0025],[8.6784,62.0095],[8.7623,62.031],[8.9064,62.0066],[9.015,62.0176],[9.0103,62.0472],[9.0543,62.0502],[9.104,62.0892],[9.1081,62.1048],[9.0795,62.1111],[9.0944,62.1266],[9.2873,62.1964],[9.3192,62.2532],[9.2127,62.3431],[9.0621,62.3726],[8.9711,62.3539],[8.7926,62.3784],[8.3893,62.3639],[8.2058,62.3317],[7.9836,62.1775]]]}},{"type":"Feature","properties":{"nr":"3433","navn":"Skjåk"},"geometry":{"type":"Polygon","coordinates":[[[7.3491,62.0077],[7.3809,62.003],[7.399,61.9779],[7.3888,61.9331],[7.4125,61.8575],[7.5148,61.7603],[7.5138,61.7274],[7.7525,61.7548],[7.9082,61.7217],[7.9044,61.6791],[8.011,61.7321],[8.1274,61.7421],[8.2685,61.8086],[8.4681,61.8522],[8.5253,61.8953],[8.4357,61.9369],[8.5914,62.0079],[8.2179,62.0025],[8.0815,62.0483],[7.9836,62.1775],[7.864,62.1708],[7.8273,62.1897],[7.7346,62.1846],[7.5794,62.1219],[7.6318,62.0851],[7.5838,62.0653],[7.5142,62.0974],[7.4147,62.0921],[7.4026,62.0609],[7.3425,62.0354],[7.3491,62.0077]]]}},{"type":"Feature","properties":{"nr":"3434","navn":"Lom"},"geometry":{"type":"Polygon","coordinates":[[[8.3025,61.4456],[8.4661,61.3977],[8.5116,61.4028],[8.4877,61.4502],[8.634,61.4915],[8.5566,61.5438],[8.5335,61.5842],[8.7595,61.6032],[8.8613,61.6532],[8.873,61.7128],[8.9852,61.7377],[8.9791,61.769],[8.9554,61.7813],[8.9652,61.7984],[8.8694,61.8252],[8.8609,61.8902],[8.896,61.9601],[8.8712,61.9683],[8.8718,62.0089],[8.7623,62.031],[8.5914,62.0079],[8.4357,61.9369],[8.5253,61.8953],[8.4681,61.8522],[8.2685,61.8086],[8.1274,61.7421],[8.011,61.7321],[7.9044,61.6791],[7.8956,61.6437],[7.9473,61.5567],[8.1179,61.5228],[8.1956,61.5478],[8.2623,61.534],[8.322,61.4559],[8.3025,61.4456]]]}},{"type":"Feature","properties":{"nr":"4028","navn":"Kviteseid"},"geometry":{"type":"Polygon","coordinates":[[[8.1412,59.3529],[8.3529,59.261],[8.4876,59.2673],[8.5921,59.2428],[8.611,59.2643],[8.5797,59.2776],[8.5856,59.2897],[8.6244,59.2967],[8.6807,59.2673],[8.745,59.2659],[8.8206,59.2766],[8.8292,59.3026],[8.8828,59.3025],[8.8701,59.3339],[8.8818,59.3516],[8.7965,59.3634],[8.7623,59.3935],[8.635,59.373],[8.6377,59.4158],[8.615,59.4124],[8.6141,59.4534],[8.5532,59.4493],[8.4968,59.5091],[8.375,59.5347],[8.3743,59.5542],[8.3194,59.5741],[8.3006,59.5711],[8.34,59.5476],[8.3246,59.541],[8.3247,59.4873],[8.268,59.4736],[8.2848,59.4337],[8.3343,59.4219],[8.3172,59.3979],[8.2415,59.4053],[8.2443,59.3897],[8.1412,59.3529]]]}},{"type":"Feature","properties":{"nr":"4030","navn":"Nissedal"},"geometry":{"type":"Polygon","coordinates":[[[8.3051,58.9286],[8.4765,58.8869],[8.5755,58.9314],[8.6534,58.8694],[8.7437,58.8314],[8.7864,58.8436],[8.7811,58.8676],[8.8307,58.9126],[8.762,58.9485],[8.8342,58.9881],[8.6718,59.0572],[8.6623,59.0991],[8.7372,59.1173],[8.6489,59.2145],[8.4876,59.2673],[8.3874,59.2671],[8.2865,59.2322],[8.2979,59.1723],[8.3358,59.1405],[8.3046,59.1167],[8.3755,59.0789],[8.3682,59.0292],[8.4005,59.0225],[8.3123,58.9793],[8.3475,58.951],[8.3051,58.9286]]]}},{"type":"Feature","properties":{"nr":"4032","navn":"Fyresdal"},"geometry":{"type":"Polygon","coordinates":[[[7.6962,59.3267],[7.7251,59.2609],[7.7805,59.2207],[7.7494,59.2077],[7.7292,59.1673],[7.7422,59.1439],[7.8053,59.1171],[7.9112,59.009],[7.9405,59.0054],[7.9419,58.9869],[7.9853,58.9616],[8.0917,58.9485],[8.1367,58.9611],[8.0795,58.9722],[8.1733,58.9823],[8.3051,58.9286],[8.3475,58.951],[8.3123,58.9793],[8.4005,59.0225],[8.3682,59.0292],[8.3755,59.0789],[8.3046,59.1167],[8.3358,59.1405],[8.2979,59.1723],[8.2865,59.2322],[8.3529,59.261],[8.1412,59.3529],[8.1202,59.3391],[8.0612,59.3566],[7.9973,59.335],[7.8077,59.3591],[7.7553,59.3292],[7.6962,59.3267]]]}},{"type":"Feature","properties":{"nr":"4034","navn":"Tokke"},"geometry":{"type":"Polygon","coordinates":[[[7.54,59.3988],[7.5954,59.3767],[7.6151,59.3285],[7.7553,59.3292],[7.8077,59.3591],[7.8563,59.3601],[7.9973,59.335],[8.0612,59.3566],[8.1202,59.3391],[8.2443,59.3897],[8.2415,59.4053],[8.3172,59.3979],[8.3343,59.4219],[8.2848,59.4337],[8.268,59.4736],[8.3247,59.4873],[8.3246,59.541],[8.34,59.5476],[8.3006,59.5711],[8.2611,59.5584],[8.2408,59.5809],[8.1792,59.5672],[8.1785,59.5503],[8.1052,59.55],[8.0807,59.571],[8.0561,59.5531],[8.0012,59.5632],[7.9877,59.5413],[8.0029,59.5227],[7.9662,59.4873],[7.84,59.5446],[7.8251,59.5859],[7.8457,59.5955],[7.5515,59.5866],[7.5145,59.5615],[7.5363,59.524],[7.6256,59.4618],[7.5661,59.4384],[7.5767,59.4258],[7.54,59.3988]]]}},{"type":"Feature","properties":{"nr":"4036","navn":"Vinje"},"geometry":{"type":"Polygon","coordinates":[[[7.0963,59.7828],[7.1101,59.7006],[7.3926,59.6329],[7.4016,59.6595],[7.4378,59.6553],[7.5515,59.5866],[7.8457,59.5955],[7.8251,59.5859],[7.84,59.5446],[7.9662,59.4873],[8.0029,59.5227],[7.9877,59.5413],[8.0012,59.5632],[8.0561,59.5531],[8.0807,59.571],[8.1324,59.5476],[8.2493,59.5736],[8.2772,59.6045],[8.2158,59.6756],[8.2459,59.6882],[8.2065,59.7063],[8.2231,59.7321],[8.2929,59.7423],[8.3009,59.7795],[8.2809,59.8194],[8.3248,59.8286],[8.2588,59.8345],[8.2674,59.8217],[8.161,59.8535],[8.1889,59.9319],[8.0948,60.0027],[8.1232,60.0147],[8.0994,60.0397],[8.0118,60.0509],[8.0268,60.0562],[7.935,60.1074],[7.8128,60.1026],[7.646,60.1269],[7.4883,60.0989],[7.4426,60.0573],[7.4364,60.0192],[7.2329,59.9627],[7.1467,59.8803],[7.1581,59.8285],[7.0963,59.7828]]]}},{"type":"Feature","properties":{"nr":"4207","navn":"Flekkefjord"},"geometry":{"type":"MultiPolygon","coordinates":[[[[6.7245,58.2223],[6.713,58.2386],[6.7561,58.2497],[6.7528,58.2774],[6.7783,58.2788],[6.7724,58.3363],[6.8041,58.3448],[6.8065,58.3268],[6.8403,58.324],[6.9255,58.343],[6.9132,58.3812],[6.875,58.4106],[6.8686,58.4984],[6.8274,58.5139],[6.6798,58.5023],[6.703,58.565],[6.6083,58.5617],[6.5877,58.4928],[6.6074,58.4894],[6.6302,58.4437],[6.5953,58.4163],[6.6087,58.374],[6.5603,58.3274],[6.3817,58.2769],[6.6468,58.2337],[6.6672,58.2404],[6.6468,58.2644],[6.6568,58.3193],[6.6729,58.2813],[6.6617,58.2624],[6.7245,58.2223]]],[[[6.5018,58.227],[6.5221,58.222],[6.5237,58.232],[6.5018,58.227]]],[[[6.5206,58.2443],[6.5436,58.2114],[6.5636,58.2132],[6.5569,58.2359],[6.5825,58.2046],[6.6287,58.1959],[6.6364,58.2182],[6.6112,58.2378],[6.5206,58.2443]]],[[[6.6496,58.2038],[6.6834,58.216],[6.67,58.2336],[6.6525,58.2246],[6.6496,58.2038]]]]}},{"type":"Feature","properties":{"nr":"4217","navn":"Åmli"},"geometry":{"type":"Polygon","coordinates":[[[7.9864,58.7073],[8.153,58.6996],[8.2002,58.7186],[8.3276,58.6818],[8.3597,58.6963],[8.3753,58.6529],[8.4362,58.6232],[8.4812,58.6511],[8.4743,58.6748],[8.6632,58.649],[8.7047,58.6143],[8.7597,58.6541],[8.7088,58.7047],[8.651,58.7007],[8.6218,58.7424],[8.6692,58.8044],[8.7437,58.8314],[8.6534,58.8694],[8.6095,58.9142],[8.5755,58.9314],[8.4765,58.8869],[8.3099,58.9195],[8.1733,58.9823],[8.0795,58.9722],[8.1367,58.9611],[8.0917,58.9485],[8.0094,58.9647],[8.003,58.9379],[7.9638,58.9185],[8.0034,58.8904],[7.989,58.8639],[8.0165,58.8367],[7.9811,58.7997],[7.9864,58.7073]]]}},{"type":"Feature","properties":{"nr":"4220","navn":"Bygland"},"geometry":{"type":"Polygon","coordinates":[[[7.0326,58.8215],[7.1617,58.8203],[7.162,58.8365],[7.3564,58.8519],[7.4549,58.8794],[7.4661,58.8639],[7.5774,58.857],[7.6157,58.8008],[7.6655,58.7679],[7.6457,58.7313],[7.7497,58.6772],[7.8032,58.6733],[7.8293,58.6459],[7.9559,58.6806],[7.9864,58.7073],[7.9811,58.7997],[8.0165,58.8367],[7.989,58.8639],[8.0034,58.8904],[7.9614,58.9118],[8.003,58.9379],[8.0094,58.9647],[7.9419,58.9869],[7.9405,59.0054],[7.9112,59.009],[7.821,59.0981],[7.7709,59.0649],[7.605,59.0433],[7.5675,59.0153],[7.5511,59.0266],[7.3364,59.0029],[7.1654,58.9412],[7.1299,58.8887],[7.0715,58.8827],[7.0888,58.8538],[7.0326,58.8215]]]}},{"type":"Feature","properties":{"nr":"4221","navn":"Valle"},"geometry":{"type":"Polygon","coordinates":[[[6.9964,59.1896],[7.2049,59.1431],[7.1608,59.1345],[7.1732,59.1187],[7.1427,59.04],[7.1795,59.0115],[7.107,58.9958],[7.1654,58.9412],[7.3364,59.0029],[7.5511,59.0266],[7.5675,59.0153],[7.605,59.0433],[7.696,59.0461],[7.821,59.0981],[7.7292,59.1673],[7.7494,59.2077],[7.7805,59.2207],[7.7251,59.2609],[7.6962,59.3267],[7.6151,59.3285],[7.5954,59.3767],[7.54,59.3988],[7.4457,59.3486],[7.4155,59.2856],[7.3267,59.3064],[7.2986,59.3004],[7.2984,59.284],[7.2392,59.2777],[7.1848,59.2938],[6.9964,59.1896]]]}},{"type":"Feature","properties":{"nr":"4222","navn":"Bykle"},"geometry":{"type":"Polygon","coordinates":[[[6.8377,59.1926],[6.9964,59.1896],[7.1848,59.2938],[7.2392,59.2777],[7.2984,59.284],[7.2986,59.3004],[7.3267,59.3064],[7.4155,59.2856],[7.4457,59.3486],[7.6256,59.4618],[7.5363,59.524],[7.5145,59.5615],[7.5515,59.5866],[7.5379,59.6016],[7.4378,59.6553],[7.4016,59.6595],[7.3926,59.6329],[7.2147,59.6727],[7.0987,59.6513],[7.0486,59.5868],[6.9918,59.597],[6.9803,59.5234],[6.963,59.5164],[7.0229,59.4812],[6.8828,59.4284],[6.9314,59.4027],[6.8909,59.3982],[6.8316,59.3173],[6.8377,59.1926]]]}},{"type":"Feature","properties":{"nr":"4227","navn":"Kvinesdal"},"geometry":{"type":"Polygon","coordinates":[[[6.7245,58.2223],[6.8439,58.2592],[6.7614,58.2264],[6.7772,58.2136],[7.0444,58.2385],[7.0566,58.2561],[7.0396,58.2627],[7.0695,58.2798],[7.1388,58.2824],[7.1143,58.3128],[7.1069,58.3381],[7.1256,58.3538],[7.1063,58.3557],[7.1189,58.3806],[7.1,58.414],[7.1311,58.4434],[7.0681,58.5355],[7.0817,58.6499],[7.1594,58.6707],[7.1832,58.7181],[7.1427,58.771],[7.1617,58.8203],[7.0326,58.8215],[7.0217,58.7979],[6.9173,58.7892],[6.9295,58.746],[6.8995,58.7387],[6.8839,58.7069],[6.8999,58.7003],[6.8574,58.6811],[6.8586,58.6519],[6.8044,58.5761],[6.8288,58.505],[6.8686,58.4984],[6.875,58.4106],[6.9132,58.3812],[6.9255,58.343],[6.8403,58.324],[6.8065,58.3268],[6.8041,58.3448],[6.7724,58.3363],[6.7783,58.2788],[6.7528,58.2774],[6.7561,58.2497],[6.713,58.2386],[6.7245,58.2223]]]}},{"type":"Feature","properties":{"nr":"4228","navn":"Sirdal"},"geometry":{"type":"Polygon","coordinates":[[[6.4361,58.6493],[6.4975,58.6099],[6.5325,58.6279],[6.6147,58.6251],[6.5879,58.5902],[6.6083,58.5617],[6.703,58.565],[6.6798,58.5023],[6.8274,58.5139],[6.8044,58.5761],[6.8586,58.6519],[6.8574,58.6811],[6.8999,58.7003],[6.8839,58.7069],[6.8995,58.7387],[6.9295,58.746],[6.9173,58.7892],[7.0217,58.7979],[7.0888,58.8538],[7.0715,58.8827],[7.1555,58.9073],[7.1654,58.9412],[7.107,58.9958],[7.1795,59.0115],[7.1427,59.04],[7.1732,59.1187],[7.1608,59.1345],[7.2049,59.1431],[6.9964,59.1896],[6.9468,59.1887],[6.8984,59.1586],[6.8797,59.1407],[6.9037,59.1134],[6.5608,58.91],[6.5675,58.8857],[6.6086,58.8801],[6.5181,58.7674],[6.5764,58.762],[6.5736,58.7414],[6.622,58.696],[6.4361,58.6493]]]}},{"type":"Feature","properties":{"nr":"4611","navn":"Etne"},"geometry":{"type":"Polygon","coordinates":[[[5.8239,59.6458],[5.9696,59.5977],[5.9694,59.579],[6.0592,59.5983],[6.183,59.5861],[6.1781,59.6148],[6.2261,59.6919],[6.2684,59.7032],[6.2741,59.74],[6.3024,59.7674],[6.4255,59.7899],[6.5254,59.8378],[6.5004,59.9233],[6.4237,59.9813],[6.3323,60.0182],[6.2625,59.9157],[6.2131,59.9167],[6.2271,59.9074],[6.2098,59.8852],[6.1218,59.8557],[6.1254,59.8203],[6.1576,59.7971],[6.2278,59.8352],[6.3573,59.8549],[6.2485,59.8309],[6.1414,59.783],[6.0897,59.7357],[5.9823,59.7341],[5.9298,59.7696],[5.9494,59.7539],[5.933,59.7456],[5.9416,59.734],[5.8558,59.726],[5.856,59.7087],[5.7825,59.6837],[5.7939,59.6484],[5.934,59.673],[5.8948,59.6495],[5.921,59.6436],[5.8239,59.6458]]]}},{"type":"Feature","properties":{"nr":"4618","navn":"Ullensvang"},"geometry":{"type":"Polygon","coordinates":[[[6.1562,60.1182],[6.1922,60.1211],[6.2162,60.1709],[6.2792,60.2081],[6.4738,60.2089],[6.4545,60.1887],[6.4831,60.1699],[6.4675,60.1131],[6.3323,60.0182],[6.4788,59.9476],[6.5254,59.8378],[6.6567,59.8446],[6.6857,59.8306],[6.6901,59.7695],[6.6521,59.7182],[6.6573,59.7017],[6.7117,59.6942],[6.9772,59.7721],[7.0963,59.7828],[7.1581,59.8285],[7.1467,59.8803],[7.2329,59.9627],[7.4364,60.0192],[7.4426,60.0573],[7.4883,60.0989],[7.223,60.1338],[7.2374,60.1595],[7.2251,60.1935],[7.1623,60.2191],[7.1803,60.2348],[7.1656,60.2598],[7.2461,60.251],[7.2355,60.2721],[7.1367,60.2931],[7.1056,60.3235],[7.1242,60.3391],[7.1162,60.3531],[6.9824,60.3483],[6.9808,60.3678],[7.0132,60.3735],[7.0375,60.4094],[6.9148,60.4149],[6.8923,60.4383],[6.8078,60.4557],[6.7088,60.3957],[6.7259,60.3786],[6.6864,60.3875],[6.6514,60.3365],[6.617,60.2747],[6.6191,60.2383],[6.571,60.1689],[6.5522,60.0729],[6.528,60.0891],[6.5668,60.2428],[6.6692,60.4079],[6.5831,60.436],[6.5141,60.4115],[6.4956,60.3842],[6.3566,60.3707],[6.3549,60.3495],[6.3769,60.3413],[6.2252,60.2922],[6.2519,60.2743],[6.2049,60.2582],[6.1953,60.2267],[6.1253,60.2201],[6.083,60.1921],[6.1672,60.1256],[6.1562,60.1182]]]}},{"type":"Feature","properties":{"nr":"4644","navn":"Luster"},"geometry":{"type":"Polygon","coordinates":[[[6.8058,61.5837],[6.8203,61.5435],[6.8697,61.5331],[6.8679,61.51],[6.8989,61.4827],[6.8994,61.4299],[6.8739,61.4134],[6.9573,61.4081],[6.9468,61.3716],[7.0159,61.3511],[7.0822,61.294],[7.1886,61.2728],[7.2141,61.2839],[7.3039,61.2482],[7.3276,61.2003],[7.3641,61.1817],[7.3944,61.1824],[7.3534,61.1973],[7.3307,61.2653],[7.2508,61.2971],[7.3472,61.344],[7.341,61.3692],[7.2845,61.3955],[7.3634,61.3788],[7.4365,61.4093],[7.449,61.4371],[7.5875,61.4948],[7.5994,61.4848],[7.4155,61.3804],[7.3917,61.3558],[7.3965,61.3366],[7.3119,61.3],[7.3786,61.2675],[7.3951,61.2062],[7.4437,61.2197],[7.4285,61.2466],[7.4567,61.2879],[7.5131,61.3117],[7.5075,61.3288],[7.62,61.3218],[7.6034,61.3373],[7.6565,61.3702],[7.6612,61.4002],[7.6154,61.4248],[7.6461,61.4419],[7.7956,61.4318],[7.8718,61.4612],[7.9857,61.4296],[8.1504,61.4267],[8.2748,61.4313],[8.322,61.4559],[8.2623,61.534],[8.1956,61.5478],[8.1179,61.5228],[7.9473,61.5567],[7.8956,61.6437],[7.9082,61.7217],[7.7525,61.7548],[7.5138,61.7274],[7.5148,61.7603],[7.4125,61.8575],[7.2244,61.8],[7.0366,61.6772],[6.9045,61.6363],[6.8058,61.5837]]]}},{"type":"Feature","properties":{"nr":"4651","navn":"Stryn"},"geometry":{"type":"Polygon","coordinates":[[[6.2656,61.8606],[6.3292,61.8617],[6.443,61.8297],[6.5254,61.8345],[6.556,61.8781],[6.6995,61.8999],[6.7106,61.8815],[6.8365,61.8754],[6.8037,61.8349],[6.7571,61.8639],[6.5927,61.8699],[6.5828,61.8631],[6.61,61.8468],[6.4757,61.8042],[6.2669,61.8459],[6.3037,61.8296],[6.2933,61.8095],[6.3563,61.7915],[6.5993,61.7719],[6.6778,61.8015],[6.7392,61.7963],[6.7582,61.7794],[6.7022,61.7386],[6.7191,61.7017],[6.7437,61.664],[6.7786,61.6614],[6.7797,61.6407],[6.8543,61.6095],[7.0366,61.6772],[7.2244,61.8],[7.4125,61.8575],[7.4142,61.8915],[7.3888,61.9331],[7.399,61.9779],[7.3809,62.003],[7.2408,62.0189],[7.2341,62.0341],[7.0745,62.0093],[7.0396,61.9837],[6.6217,61.9583],[6.5013,61.9234],[6.4529,61.9323],[6.4477,61.8983],[6.2613,61.9011],[6.2656,61.8606]]]}},{"type":"Feature","properties":{"nr":"5042","navn":"Lierne"},"geometry":{"type":"Polygon","coordinates":[[[13.0695,64.4339],[13.1262,64.3529],[13.2176,64.3126],[13.248,64.253],[13.2111,64.0954],[13.9675,64.008],[14.1571,64.1951],[14.1139,64.4625],[13.8912,64.5071],[13.6542,64.5803],[13.9313,64.8221],[13.5267,64.7655],[13.3767,64.7265],[13.3847,64.6973],[13.3334,64.6669],[13.2673,64.5884],[13.091,64.503],[13.0695,64.4339]]]}},{"type":"Feature","properties":{"nr":"5043","navn":"Raarvihke - Røyrvik"},"geometry":{"type":"Polygon","coordinates":[[[13.091,64.503],[13.2673,64.5884],[13.3334,64.6669],[13.3847,64.6973],[13.3767,64.7265],[13.5267,64.7655],[13.9313,64.8221],[14.326,65.1189],[14.1643,65.1392],[13.7097,65.1126],[13.6289,65.1053],[13.4278,65.0431],[13.3523,64.9262],[13.1727,64.7842],[13.1813,64.7503],[13.0441,64.7489],[13.0849,64.6648],[13.1214,64.6437],[13.091,64.503]]]}},{"type":"Feature","properties":{"nr":"5044","navn":"Namsskogan"},"geometry":{"type":"Polygon","coordinates":[[[12.5162,64.7224],[12.6291,64.7264],[12.608,64.7109],[12.697,64.6842],[12.7902,64.6935],[12.7872,64.6793],[12.8525,64.6687],[12.8491,64.6561],[13.091,64.503],[13.1214,64.6437],[13.0849,64.6648],[13.0441,64.7489],[13.1813,64.7503],[13.1727,64.7842],[13.3523,64.9262],[13.4278,65.0431],[13.6289,65.1053],[13.0854,65.11],[13.0532,65.0738],[12.996,65.0684],[12.9676,65.0329],[12.9079,65.0291],[12.9481,65.0],[12.9342,64.9846],[12.7747,64.9755],[12.7913,64.9534],[12.7683,64.9408],[12.7151,64.9526],[12.7332,64.9323],[12.7132,64.9109],[12.7203,64.8805],[12.5195,64.8521],[12.5858,64.8258],[12.5241,64.7997],[12.5162,64.7224]]]}},{"type":"Feature","properties":{"nr":"5045","navn":"Grong"},"geometry":{"type":"Polygon","coordinates":[[[12.1265,64.3324],[12.3061,64.3435],[12.4206,64.3952],[12.5543,64.3852],[12.695,64.4176],[13.0695,64.4339],[13.091,64.503],[12.8491,64.6561],[12.8525,64.6687],[12.7872,64.6793],[12.7902,64.6935],[12.697,64.6842],[12.608,64.7109],[12.6291,64.7264],[12.5162,64.7224],[12.5744,64.7133],[12.4587,64.6453],[12.5024,64.6326],[12.3342,64.5581],[12.1774,64.5128],[12.1489,64.5203],[12.0709,64.4777],[12.1261,64.4619],[12.11,64.4229],[12.1547,64.3976],[12.1626,64.3768],[12.1265,64.3324]]]}}]}};</script>
+<script>(function(){
+const D=window.DATA, C=D.cases, L=D.nace_labels, LANDET=D.landet;
+const NACE_IND=['05-09','10-33','35-39'];
+const TYPECOL={krypto:'#8a4fbf',KI:'#1f4ea8','KI/hyperscale':'#1f4ea8','KI/industri':'#2e7d54',
+  'KI/tradisjonell':'#3f72c4',hyperscale:'#a8443a',by:'#6b7682',tradisjonell:'#c0612e',blandet:'#b08200'};
+function tcol(t){return TYPECOL[t]||'#888'}
+const fmt=n=>n==null?'–':n.toLocaleString('nb-NO');
+const f1=n=>n==null?'–':n.toLocaleString('nb-NO',{maximumFractionDigits:1});
+
+// ---------- KAP1: Norgeskart ----------
+document.getElementById('ndc').textContent=D.dc_all.length;
+const norge=L_map('norge',[64.8,12.5],4.3);
+function L_map(id,center,zoom){
+  const m=L.map(id,{scrollWheelZoom:false}).setView(center,zoom);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom:18,attribution:'© OpenStreetMap-bidragsytere'}).addTo(m);
+  return m;
+}
+// datasenterpunkter
+const caseNr=new Set(Object.values(C).map(c=>c.nr));
+D.dc_all.forEach(d=>{
+  const[navn,nr,lat,lon,akt,typ]=d;
+  const isCase=caseNr.has(nr);
+  L.circleMarker([lat,lon],{radius:isCase?8:5,color:'#fff',weight:isCase?2:1,
+    fillColor:tcol(typ),fillOpacity:.9})
+   .addTo(norge)
+   .bindPopup('<b>'+navn+'</b><br>'+akt+'<br><span style="color:#666">Type: '+typ+'</span>'+
+     (isCase?'<br><b style="color:#1f4ea8">▸ Casekommune</b>':''));
+});
+// legende
+const lg=L.control({position:'bottomright'});
+lg.onAdd=function(){const d=L.DomUtil.create('div','legend');
+  d.innerHTML='<b>Datasentertype</b><br>'+
+  ['krypto','KI','hyperscale','by','tradisjonell'].map(t=>
+    '<span class="dot" style="background:'+tcol(t)+'"></span>'+t).join('<br>')+
+  '<br><b style="display:block;margin-top:6px">Større punkt = casekommune</b>';
+  return d;};
+lg.addTo(norge);
+
+// ---------- KAP2: skjevhetsfordeling ----------
+(function(){
+const vals=D.kk_alle, st=D.kk_stats;
+const svg=document.getElementById('distviz');
+const W=700,H=220,pad={l:46,r:16,t:18,b:34};
+const max=st.max, bins=30, bw=(W-pad.l-pad.r)/bins;
+const counts=new Array(bins).fill(0);
+vals.forEach(v=>{let i=Math.min(bins-1,Math.floor(v/max*bins));counts[i]++});
+const cmax=Math.max(...counts);
+let s='';
+// akser
+s+=`<line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="#bbb"/>`;
+counts.forEach((c,i)=>{
+  const h=(c/cmax)*(H-pad.t-pad.b);
+  const x=pad.l+i*bw, y=H-pad.b-h;
+  s+=`<rect x="${x}" y="${y}" width="${bw-1}" height="${h}" fill="#c8d6ea"/>`;
+});
+// markører for median/snitt/p99
+function mark(v,lab,col){
+  const x=pad.l+(v/max)*(W-pad.l-pad.r);
+  return `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${H-pad.b}" stroke="${col}" stroke-dasharray="4 3"/>`+
+    `<text x="${x+3}" y="${pad.t+11}" font-family="IBM Plex Mono" font-size="11" fill="${col}">${lab}</text>`;
+}
+s+=mark(st.median,'median '+f1(st.median),'#2e7d54');
+s+=mark(st.snitt,'snitt '+f1(st.snitt),'#c0612e');
+s+=mark(st.p99,'p99 '+f1(st.p99),'#a8443a');
+// x labels
+[0,100,200,300].forEach(v=>{const x=pad.l+(v/max)*(W-pad.l-pad.r);
+  s+=`<text x="${x}" y="${H-pad.b+16}" font-family="IBM Plex Mono" font-size="10" fill="#888" text-anchor="middle">${v}</text>`;});
+s+=`<text x="${(W)/2}" y="${H-4}" font-size="11" fill="#888" text-anchor="middle">Konsesjonskraft (GWh) per kommune</text>`;
+svg.innerHTML=s;
+document.getElementById('diststat').innerHTML=
+  `${st.n} kommuner. Median <span class="num">${f1(st.median)}</span> GWh, `+
+  `snitt <span class="num">${f1(st.snitt)}</span> GWh – snittet trekkes opp av få kraftkommuner. `+
+  `Øverste 1 % ligger rundt <span class="num">${f1(st.p99)}</span> GWh, toppen på `+
+  `<span class="num">${f1(st.max)}</span> GWh (Ullensvang).`;
+})();
+
+// ---------- CASE-MODUL ----------
+function pop_change(c){return ((c.pop2026-c.pop2016)/c.pop2016*100);}
+function ind_sum(c){ // sum 05-39, returnerer {sum, prikket:bool}
+  let sum=0,prik=false;
+  NACE_IND.forEach(k=>{const v=c.nace[k];if(v==null)prik=true;else sum+=v;});
+  return {sum,prik};
+}
+function lq(c,k){ // lokaliseringskvotient for næring k
+  const v=c.nace[k]; if(v==null)return null;
+  const landAndel=LANDET[k]/LANDET['00-99'];
+  const kommAndel=v/c.syss;
+  return kommAndel/landAndel;
+}
+function ind_lq(c){ // LQ for 05-39 samlet (kun hvis ingen prikk)
+  const is=ind_sum(c); if(is.prik)return null;
+  const landAndel=(LANDET['05-09']+LANDET['10-33']+LANDET['35-39'])/LANDET['00-99'];
+  return (is.sum/c.syss)/landAndel;
+}
+function kategori(c){ // hjørnesteinskategori
+  const ch=pop_change(c), kk=c.kk;
+  // grov regel basert på folketall + endring + kraft
+  if(c.pop2026<800) return ['hoy','Høyt potensial som ny hjørnestein'];
+  if(c.pop2026<1500 && ch<0) return ['hoy','Høyt potensial som ny hjørnestein'];
+  if(kk && kk>150) return ['mod','Moderat potensial, mulig kraftfortrengning'];
+  if(c.pop2026>1700 && ch>=0) return ['svak','Svak lokal hjørnesteinseffekt'];
+  return ['mod','Moderat potensial, mulig kraftfortrengning'];
+}
+
+let detaljMap=null;
+function renderCase(name){
+  const c=C[name];
+  // KORT
+  const ch=pop_change(c), is=ind_sum(c), ilq=ind_lq(c);
+  const[bk,btxt]=kategori(c);
+  const kkstr=c.kk==null?'<span class="prikket">mangler i datasett</span>':f1(c.kk)+' <span class="sub">GWh</span>';
+  const indstr=is.prik?'<span class="prikket">delvis prikket</span>'
+    :fmt(is.sum)+' <span class="sub">('+(is.sum/c.syss*100).toFixed(1)+'%)</span>';
+  const lqstr=ilq==null?'<span class="prikket">kan ikke beregnes</span>':f1(ilq);
+  document.getElementById('kort').innerHTML=`
+    <div class="top">
+      <div><h3>${name}</h3><div class="knr">kommunenr ${c.nr}</div></div>
+      <span class="badge ${bk}">${btxt}</span>
+    </div>
+    <div class="grid2">
+      <div class="cell"><div class="lab">Folketall 2026</div><div class="val">${fmt(c.pop2026)}</div></div>
+      <div class="cell"><div class="lab">Endring 10 år</div>
+        <div class="val ${ch<0?'':''}" style="color:${ch<0?'var(--bad)':'var(--good)'}">${ch>=0?'+':''}${ch.toFixed(1)}%</div></div>
+      <div class="cell"><div class="lab">Sysselsatte (arbeidssted)</div><div class="val">${fmt(c.syss)}</div></div>
+      <div class="cell"><div class="lab">Andel alder 20–64</div><div class="val">${f1(c.andel2064)}%</div></div>
+      <div class="cell"><div class="lab">Industriell base 05–39</div><div class="val sm">${indstr}</div></div>
+      <div class="cell"><div class="lab">Lokaliseringskvotient 05–39</div><div class="val sm">${lqstr}</div></div>
+      <div class="cell"><div class="lab">Konsesjonskraft</div><div class="val sm">${kkstr}</div></div>
+      <div class="cell"><div class="lab">Datasenter</div><div class="val sm" style="font-size:13px">${c.dc}</div>
+        <div class="sub">${c.dctype}</div></div>
+    </div>
+    <div class="dckval">Datakvalitet datasenter: ${c.dckval}.</div>`;
+
+  // NÆRINGSPROFIL
+  renderProfil(c);
+  // MW-MODUL
+  renderMW(name,c);
+  // DETALJKART
+  renderDetalj(c);
+
+  // knapper
+  document.querySelectorAll('#casebtns button').forEach(b=>
+    b.setAttribute('aria-selected', b.dataset.case===name));
+}
+
+function renderProfil(c){
+  // vis hovednæringer som andel, fremhev 05-39, med LQ-tag
+  const order=['01-03','05-09','10-33','35-39','41-43','45-47','49-53','55-56',
+    '58-63','64-66','68-75','77-82','84','85','86-88','90-99'];
+  // slå sammen til andel av syss, behold prikk
+  let rows=order.map(k=>{
+    const v=c.nace[k];
+    const andel=v==null?null:v/c.syss*100;
+    return {k,v,andel,lq:lq(c,k),ind:NACE_IND.includes(k)};
+  });
+  const maxA=Math.max(...rows.map(r=>r.andel||0));
+  let h='<h3>Næringsprofil</h3><div class="note" style="margin:0 0 10px">Andel av sysselsatte etter '+
+    'arbeidssted. <span style="color:var(--warm)">Oransje</span> = industriell base (05–39). '+
+    'LQ &gt; 1 = mer enn landssnittet.</div>';
+  h+='<div class="bar head"><div class="bn">Næring</div><div>Andel</div><div class="lq">LQ</div></div>';
+  rows.forEach(r=>{
+    const w=r.andel==null?0:(r.andel/maxA*100);
+    const lqt=r.lq==null?'<span class="prikket" style="font-size:11px">·</span>'
+      :'<span class="lqtag" style="background:'+(r.lq>=1?'#e7f3ec':'#f0ede5')+
+       ';color:'+(r.lq>=1?'#2e7d54':'#888')+'">'+f1(r.lq)+'</span>';
+    const aw=r.andel==null?'<span class="prikket" style="font-size:11px">prikket</span>'
+      :r.andel.toFixed(1)+'%';
+    h+=`<div class="bar"><div class="bn" title="${L[r.k]}">${L[r.k]}</div>`+
+       `<div class="bt"><div class="bf ${r.ind?'ind':''}" style="width:${w}%"></div></div>`+
+       `<div class="lq">${aw}${lqt}</div></div>`;
+  });
+  document.getElementById('profil').innerHTML=h;
+}
+
+function sizeClass(mw){if(mw<10)return'0–10 MW';if(mw<50)return'10–50 MW';
+  if(mw<150)return'50–150 MW';return'150+ MW';}
+function scenarioRates(mw){ // (lav, nøktern, høy)
+  if(mw<10)return[1.0,1.5,3.0];
+  if(mw<50)return[0.8,1.3,2.1];
+  if(mw<150)return[0.8,1.1,1.5];
+  return[0.6,0.9,1.1];
+}
+function renderMW(name,c){
+  const box=document.getElementById('mwbox');
+  if(!c.dcmw){ // ingen oppgitt MW
+    box.innerHTML=`<h3 style="font-family:var(--f-disp);margin:0 0 6px">Fra MW til arbeidsplasser</h3>
+      <p class="note" style="margin:0">Det finnes ikke oppgitt effekt (MW) for ${c.dc} i datagrunnlaget.
+      Uten kapasitet kan vi ikke anslå direkte driftsansatte – feltet vises som
+      <span class="prikket">mangler data</span> heller enn å gjette. Byggefasen kan likevel gi
+      midlertidig aktivitet.</p>
+      <div class="byggboks">Byggingen kan gi høy aktivitet i noen år. Driften gir et mer varig,
+      men ofte mindre, arbeidsplassavtrykk.</div>`;
+    return;
+  }
+  const mw=c.dcmw;
+  const[lr,nr,hr]=scenarioRates(mw);
+  const lav=Math.round(mw*lr), nok=Math.round(mw*nr), hoy=Math.round(mw*hr);
+  const konkret=c.dcansatte; // oppgitt anslag
+  // relativ betydning bruker konkret hvis finnes, ellers nøktern
+  const ansatte=konkret||nok;
+  const andelSyss=(ansatte/c.syss*100);
+  const per1000=(ansatte/c.pop2026*1000);
+  let h=`<h3 style="font-family:var(--f-disp);margin:0 0 4px">Fra MW til arbeidsplasser</h3>
+    <div class="note" style="margin:0 0 4px">${c.dc}: <b>${mw} MW</b> · størrelsesklasse ${sizeClass(mw)}.
+    Scenarioene bruker ansatte/MW kalibrert på klassen.</div>
+    <div class="scenarios">
+      <div class="scen"><div class="sl">Lavt (${lr})</div><div class="sv">${lav}</div><div class="ss">ansatte</div></div>
+      <div class="scen"><div class="sl">Nøkternt (${nr})</div><div class="sv">${nok}</div><div class="ss">ansatte</div></div>
+      <div class="scen"><div class="sl">Høyt (${hr})</div><div class="sv">${hoy}</div><div class="ss">ansatte</div></div>
+    </div>`;
+  if(konkret){
+    h+=`<div class="scen konkret" style="text-align:left">
+      <div class="sl">Konkret anslag fra SSB-tabell (brukes først)</div>
+      <div class="sv">${konkret} ansatte <span style="font-size:12px;color:#666">· ${(konkret/mw).toFixed(2)} pr MW</span></div>
+      <div class="ss">Scenarioene over er sammenligningsramme, ikke erstatning.</div></div>`;
+  }
+  h+=`<div class="relrow">
+      <div class="rc"><div class="rl">Andel av kommunens sysselsetting</div>
+        <div class="rv">${andelSyss.toFixed(1)}%</div></div>
+      <div class="rc"><div class="rl">Ansatte per 1 000 innbyggere</div>
+        <div class="rv">${per1000.toFixed(1)}</div></div>
+    </div>`;
+  // tolkningsregel
+  const hjorne = andelSyss>=8;
+  h+=`<div class="byggboks" style="background:${hjorne?'#e7f3ec':'#efeae0'}">
+    ${hjorne
+      ? '<b>Tolkning:</b> Anslaget er stort nok relativt til arbeidsmarkedet til at «mulig hjørnesteinsbedrift» er en rimelig ramme – men driftstallet bør bekreftes.'
+      : '<b>Tolkning:</b> Selv det konkrete anslaget er lite mot kommunens samlede arbeidsmarked. «Kraftintensiv infrastrukturetablering» eller «stor kraftbruker» beskriver dette mer presist enn «hjørnesteinsbedrift».'}
+    </div>`;
+  box.innerHTML=h;
+}
+
+function renderDetalj(c){
+  const nb=D.neigh[c.nr]||[];
+  const want=new Set([c.nr,...nb]);
+  const feats=D.geo.features.filter(f=>want.has(f.properties.nr));
+  if(detaljMap){detaljMap.remove();detaljMap=null;}
+  detaljMap=L.map('detalj',{scrollWheelZoom:false});
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom:18,attribution:'© OpenStreetMap'}).addTo(detaljMap);
+  const layer=L.geoJSON({type:'FeatureCollection',features:feats},{
+    style:f=>{
+      const isFocus=f.properties.nr===c.nr;
+      return{color:isFocus?'#16356f':'#8b97a1',weight:isFocus?2.4:1,
+        fillColor:isFocus?'#1f4ea8':'#c3ced6',fillOpacity:isFocus?.42:.16};
+    },
+    onEachFeature:(f,lyr)=>{
+      const kk=D.kk_bynr[f.properties.nr];
+      const isFocus=f.properties.nr===c.nr;
+      lyr.bindTooltip(f.properties.navn+(isFocus?' (fokus)':'')+
+        '<br>Konsesjonskraft: '+(kk==null?'mangler':f1(kk)+' GWh'),{sticky:true});
+    }
+  }).addTo(detaljMap);
+  detaljMap.fitBounds(layer.getBounds().pad(0.08));
+  // datasenterpunkt for fokuskommune
+  const dc=D.dc_all.find(d=>d[1]===c.nr);
+  if(dc){
+    L.circleMarker([dc[2],dc[3]],{radius:8,color:'#fff',weight:2,
+      fillColor:tcol(dc[5]),fillOpacity:.95}).addTo(detaljMap)
+     .bindPopup('<b>'+c.dc+'</b><br><span style="color:#666">plassering på kommunenivå</span>');
+  }
+  // naboer med kraft (kontekst)
+  const sterke=nb.map(n=>({nr:n,kk:D.kk_bynr[n],
+    navn:(D.geo.features.find(f=>f.properties.nr===n)||{properties:{}}).properties.navn}))
+    .filter(x=>x.kk!=null).sort((a,b)=>b.kk-a.kk).slice(0,3);
+  document.getElementById('detaljnote').innerHTML=
+    'Fokuskommune i blått, nabokommuner i grått. '+
+    (sterke.length?'Naboer med mest konsesjonskraft: '+
+      sterke.map(s=>s.navn+' ('+f1(s.kk)+' GWh)').join(', ')+'. ':'')+
+    'Effektene av et datasenter stopper ikke ved kommunegrensen – arbeidsmarked og kraftregion er regionale.';
+}
+
+// bygg knapper
+const cb=document.getElementById('casebtns');
+Object.keys(C).forEach((name,i)=>{
+  const b=document.createElement('button');
+  b.textContent=name; b.dataset.case=name; b.setAttribute('role','tab');
+  b.onclick=()=>renderCase(name);
+  cb.appendChild(b);
+});
+
+// ---------- SIGNATUR: matrise ----------
+(function(){
+const svg=document.getElementById('matrise');
+const W=700,H=480,pad={l:70,r:30,t:36,b:64};
+// sårbarhet (y, høyt=mer sårbar): lavt folketall + fallende befolkning
+// kapasitet (x, høyt=mer kapasitet): konsesjonskraft + industriell base
+function vuln(c){ // 0..1
+  const popScore=Math.max(0,Math.min(1,(3000-c.pop2026)/2800)); // mindre folk = mer sårbar
+  const ch=((c.pop2026-c.pop2016)/c.pop2016);
+  const chScore=Math.max(0,Math.min(1,(-ch+0.02)/0.10)); // fallende = mer sårbar
+  return Math.min(1,(popScore*0.6+chScore*0.4));
+}
+function cap(c){ // 0..1
+  const kkScore=c.kk==null?0:Math.min(1,c.kk/300);
+  const is=(function(){let s=0;NACE_IND.forEach(k=>{if(c.nace[k]!=null)s+=c.nace[k];});return s;})();
+  const indScore=Math.min(1,(is/c.syss)/0.20); // andel industri mot 20%
+  return Math.min(1,kkScore*0.6+indScore*0.4);
+}
+let s='';
+// kvadrant-bakgrunn
+s+=`<rect x="${pad.l}" y="${pad.t}" width="${(W-pad.l-pad.r)/2}" height="${(H-pad.t-pad.b)/2}" fill="#f7ece4" opacity=".6"/>`;
+s+=`<text x="${pad.l+10}" y="${pad.t+20}" font-size="12" fill="#c0612e" font-weight="600">Sårbar · lav kapasitet</text>`;
+s+=`<text x="${pad.l+10}" y="${pad.t+36}" font-size="11" fill="#a07050">hjørnesteinshypotesen mest relevant – og mest usikker</text>`;
+s+=`<text x="${W/2+10}" y="${pad.t+20}" font-size="12" fill="#2e7d54" font-weight="600">Sårbar · høy kapasitet</text>`;
+s+=`<text x="${pad.l+10}" y="${H/2+pad.t/2+8}" font-size="12" fill="#6b7682" font-weight="600">Sterk · lav kapasitet</text>`;
+s+=`<text x="${W/2+10}" y="${H-pad.b-10}" font-size="12" fill="#a8443a" font-weight="600">Sterk · høy kapasitet (kraftbyen)</text>`;
+// akser
+s+=`<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}" stroke="#bbb"/>`;
+s+=`<line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="#bbb"/>`;
+s+=`<line x1="${(pad.l+W-pad.r)/2}" y1="${pad.t}" x2="${(pad.l+W-pad.r)/2}" y2="${H-pad.b}" stroke="#ddd" stroke-dasharray="3 3"/>`;
+s+=`<line x1="${pad.l}" y1="${(pad.t+H-pad.b)/2}" x2="${W-pad.r}" y2="${(pad.t+H-pad.b)/2}" stroke="#ddd" stroke-dasharray="3 3"/>`;
+// akse-labels
+s+=`<text x="${(pad.l+W-pad.r)/2}" y="${H-22}" text-anchor="middle" font-size="13" fill="#444">Lokal kapasitet (kraft + industriell base) →</text>`;
+s+=`<text transform="translate(22,${(pad.t+H-pad.b)/2}) rotate(-90)" text-anchor="middle" font-size="13" fill="#444">Lokal sårbarhet →</text>`;
+// punkter
+const px=v=>pad.l+v*(W-pad.l-pad.r);
+const py=v=>(H-pad.b)-v*(H-pad.t-pad.b);
+Object.entries(C).forEach(([name,c])=>{
+  const x=px(cap(c)), y=py(vuln(c));
+  s+=`<circle cx="${x}" cy="${y}" r="9" fill="#1f4ea8" stroke="#fff" stroke-width="2"/>`;
+  s+=`<text x="${x+13}" y="${y+4}" font-size="13" font-weight="600" fill="#1a1f26">${name}</text>`;
+  const kkt=c.kk==null?'kraft: mangler':f1(c.kk)+' GWh';
+  s+=`<text x="${x+13}" y="${y+19}" font-size="10.5" fill="#5b6470" font-family="IBM Plex Mono">${fmt(c.pop2026)} innb · ${kkt}</text>`;
+});
+svg.innerHTML=s;
+})();
+
+// init
+renderCase('Fyresdal');
+setTimeout(()=>{norge.invalidateSize();},200);
+})();
+</script>
+</body>
+</html>
